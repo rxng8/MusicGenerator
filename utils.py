@@ -1,24 +1,41 @@
-def findNoteDuration(pitch, events):
-    '''
-    Scan through a list of MIDI events looking for a matching note-off.
-    A note-on of the same pitch will also count to end the current note,
-    assuming an instrument can't play the same note twice simultaneously.
-    If no note-off is found, the end of the track is used to truncate
-    the current note.
+from scipy.io import wavfile
+import os, sys, shutil
 
-    Adding one more case: note-is off when velocity = 0
-    :param pitch:
-    :param events:
-    :return:
+# Sound Processing library
+import librosa
+from pydub import AudioSegment
+
+# Midi Processing library
+from mido import MidiFile
+from mido import Message, MetaMessage
+from mido import tick2second, second2tick
+
+#Math
+import numpy as np
+
+
+
+
+def get_note_range(midi_track):
     '''
-    sumTicks = 0
-    for e in events:
-        #sumTicks = sumTicks + e.tick
-        sumTicks = sumTicks + e.time
-        #c = e.__class__.__name__
-        c = e.type
-        #if c == "NoteOffEvent" or c == "NoteOnEvent":
-        if c == "note_on" or c == "note_off":
-            if e.note == pitch:
-                return sumTicks
-    return sumTicks
+    Do somethhing
+
+    :param midi_track:
+    :return minNote:
+    :return maxNote:
+    '''
+    minNote = np.Infinity
+    maxNote = -np.Infinity
+    for i, msg in enumerate(midi_track):
+        if isinstance(msg, Message) and msg.type == 'note_on':
+            note = msg.note
+            if note > maxNote:
+                maxNote = note
+            if note < minNote:
+                minNote = note
+    return minNote, maxNote
+
+
+
+
+
