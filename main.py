@@ -32,7 +32,7 @@ import sklearn
 # Deep Learning Library
 from keras.models import Model, Sequential
 from keras.layers import Input, Conv1D, MaxPooling1D, Flatten, Dense, BatchNormalization, LSTM, Bidirectional, GRU
-from keras.layers import Conv2D, MaxPooling2D, Dropout
+from keras.layers import Conv2D, MaxPooling2D, Dropout, UpSampling2D
 from keras.optimizers import Adam, SGD
 from keras.losses import categorical_crossentropy
 from keras.metrics import categorical_accuracy
@@ -50,8 +50,6 @@ ata = 'test_data/Atavachron.mid'
 noc = 'test_data/chno0902.mid'
 noo = 'test_data/NoOneInTheWorld.mid'
 
-tpb = midi.ticks_per_beat
-
 DATA_FOLDER_PATH = 'dataset_piano_jazz'
 MIDI_NOTES = np.arange(21, 109)
 MIDI_NOTES_MAP = {
@@ -60,15 +58,24 @@ MIDI_NOTES_MAP = {
     # TODO: Implement!
 }
 MIDI_PITCH_TO_INDEX_CONSTANT = np.min(MIDI_NOTES)
+NOTE_ATTRIBUTES = 5
 TICK_SCALER = 0.1
+N_CHANNELS = 1
 
-testFile = 'dataset/2004/MIDI-Unprocessed_SMF_02_R1_2004_01-05_ORIG_MID--AUDIO_02_R1_2004_05_Track05_wav.midi'
-midi = MidiFile(noo)
-
+testFile = 'dataset_piano_jazz/AHouseis.mid'
+midi = MidiFile(testFile)
 
 # %%
 
-midi
+for fname in os.listdir(DATA_FOLDER_PATH):
+    midi = MidiFile(os.path.join(DATA_FOLDER_PATH, fname))
+    if midi.type == 0:
+        print(midi.tracks)
+            
+
+# %%
+
+isinstance(midi.tracks[0][0], MetaMessage)
 # %%
 
 for fname in os.listdir(DATA_FOLDER_PATH):
@@ -77,11 +84,13 @@ for fname in os.listdir(DATA_FOLDER_PATH):
 
 # %%
 
-midi.tracks[1][6]
-
+len(str(midi.tracks[0][10]).split(" ")) != NOTE_ATTRIBUTES
 
 # %%
-len(MIDI_NOTES)
+
+len(str(midi.tracks[0][10]).split(" "))
+# %%
+'channel' not in str(midi.tracks[0][10])
 
 # %%
 
@@ -161,11 +170,11 @@ plt.figure(figsize=(30,8))
 plt.scatter(times[:100], notes[:100])
 # %%
 # Constants for instrument creation
-
-#------------------------------------------- Note Class ---------------------------------------------------#
-
 PERC = True
 INST = False
+#------------------------------------------- Note Class ---------------------------------------------------#
+
+
 class MEvent:
     """
     MEvent is a fairly direct representation of Haskell Euterpea's MEvent type,
@@ -210,6 +219,8 @@ def findNoteDuration(pitch, channel, events):
     '''
     sumTicks = 0
     for e in events:
+        if isinstance(e, MetaMessage) or len(str(e).split(" ")) != NOTE_ATTRIBUTES or 'channel' not in str(e):
+            continue
         #sumTicks = sumTicks + e.tick
         sumTicks = sumTicks + e.time
         #c = e.__class__.__name__
@@ -261,9 +272,11 @@ def structurize_track(midi_track, ticks_per_beat, default_patch=-1):
     stred = []
 
     for i, msg in enumerate(midi_track):
+        print(i, ": ", midi_track, ": ", msg)
         _type = msg.type
 
-        if isinstance(msg, MetaMessage):
+        if isinstance(msg, MetaMessage) or len(str(msg).split(" ")) != NOTE_ATTRIBUTES or 'channel' not in str(msg):
+            
             continue
 
         currChannel = msg.channel
@@ -324,8 +337,16 @@ def map_note_to_array(stred, max_tick):
         velocity = event.velocity
         array[eTime:sTime, pitch] += velocity
 
-    return array
+    return array.tolist()[500:1500]
 
+
+# %%
+
+t = np.asarray([[0,1,2,3,4],[1,2,3,4,5]])
+
+t[:,1] += 1
+
+t
 
 # %%
 
@@ -417,16 +438,17 @@ class DataGenerator(Sequence):
     def load_data(self):
         cnt = 0
         for i, _file in enumerate(os.listdir(self.data_path)):
+            
             fname = os.path.join(self.data_path, _file)
             # TODO: Check if the data is good
             
             midi = MidiFile(fname)
-            print('{} has {} tracks'.format(fname, len(midi.tracks)))
-
-            self.fname.append(fname)
-            cnt +=1
-
-        print('Found {} midi file in data folder!'.format(cnt))
+            if midi.type == 0:
+                print('{} has {} tracks'.format(fname, len(midi.tracks)))
+                self.fname.append(fname)
+                cnt +=1
+            
+        print('Found {} midi file with unique track in data folder!'.format(cnt))
 
     """
     Utilities method for classes
@@ -440,11 +462,13 @@ class DataGenerator(Sequence):
         for fname in self.fname:
             midi = MidiFile(fname)
             tpb = midi.ticks_per_beat
-            for i, track in enumerate(midi.tracks):
+            print('Extracting {}'.format(fname))
+            if midi.type == 0:
                 # x, y = map_note_to_graph(structurize_track(midi.tracks[0], tpb))
                 # arr = map_note_to_array(*structurize_track(track, tpb))
-                st, maxTick = structurize_track(track, tpb)
+                st, maxTick = structurize_track(midi.tracks[0], tpb) # If type == 0 -> midi just have 1 track.
                 arr = map_note_to_array(st, maxTick)
+                self.data.append(arr)
 
     def on_epoch_end(self):
         self.indexes = np.arange(len(self.list_IDs))
@@ -462,10 +486,23 @@ class DataGenerator(Sequence):
 
 # %%
 
-
 dataGen = DataGenerator(DATA_FOLDER_PATH)
 
+# %%
 
+dataGen.extract_data()
+
+
+# %%
+
+x = np.asarray(dataGen.data)
+
+# %%
+
+list(dataGen.data[0])
+
+# %%
+plt.imshow(dataGen.data[0][800:1100, :])
 # %%
 
 # Dummy Datagen
@@ -505,20 +542,64 @@ class DummyGen(Sequence):
 
 # %%
 
+def model (shape=(None, MIDI_NOTES.shape[0], N_CHANNELS)):
+    in_tensor = Input(shape=shape)
+
+    tensor = Conv2D(64, (1,1), activation = 'relu', padding='valid')(in_tensor)
+    tensor = MaxPooling2D(2)(tensor)
+
+    tensor = Conv2D(64, (1,1), activation = 'relu', padding='valid')(tensor)
+    tensor = MaxPooling2D(2)(tensor)
+
+    tensor = Conv2D(64, (1,1), activation = 'relu', padding='valid')(tensor)
+    tensor = MaxPooling2D(2)(tensor)
+
+    tensor = Conv2D(64, (1,1), activation = 'relu', padding='valid')(tensor)
+    tensor = UpSampling2D(2)(tensor)
+
+    tensor = Conv2D(64, (1,1), activation = 'relu', padding='valid')(tensor)
+    tensor = UpSampling2D(2)(tensor)
+
+    tensor = Conv2D(N_CHANNELS, (1,1), activation = 'relu', padding='valid')(tensor)
+    tensor = UpSampling2D(2)(tensor)
+
+    model = Model(in_tensor, tensor)
+    adam = Adam(lr = 10e-6)
+    model.compile(optimizer=adam, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+
+    return model
+
+# %%
+
+model = model()
+model.summary()
+
+# %%
+
+model.fit(
+    x=x,
+    y=x,
+    batch_size=3,
+    epochs=100,
+    verbose=1,
+    validation_split=0.1
+)
 
 
 
+# %%
 
+dataGen.data[0].shape
 
+# %%
 
+x = dataGen.data
 
+x = np.expand_dims(np.asarray(x), axis=4)
 
+# %%
 
-
-
-
-
-
+x.shape
 
 
 
