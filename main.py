@@ -16,6 +16,7 @@ from mido import tick2second, second2tick
 
 # Math Library
 import numpy as np
+import random
 
 # Display library
 import IPython.display as ipd
@@ -37,10 +38,11 @@ from keras.optimizers import Adam, SGD
 from keras.losses import categorical_crossentropy
 from keras.metrics import categorical_accuracy
 from keras.utils import Sequence
-from keras.optimizers import Adam, SGD, RMSprop
+from keras.optimizers import Adam, SGD, RMSprop, Adadelta
+from keras.callbacks import TensorBoard
 
 # Utils
-import utils
+
 
 
 # %%
@@ -65,58 +67,58 @@ N_CHANNELS = 1
 testFile = 'dataset_piano_jazz/AHouseis.mid'
 midi = MidiFile(testFile)
 
-# %%
+# # %%
 
-for fname in os.listdir(DATA_FOLDER_PATH):
-    midi = MidiFile(os.path.join(DATA_FOLDER_PATH, fname))
-    if midi.type == 0:
-        print(midi.tracks)
+# for fname in os.listdir(DATA_FOLDER_PATH):
+#     midi = MidiFile(os.path.join(DATA_FOLDER_PATH, fname))
+#     if midi.type == 0:
+#         print(midi.tracks)
             
 
+# # %%
+
+# isinstance(midi.tracks[0][0], MetaMessage)
 # %%
 
-isinstance(midi.tracks[0][0], MetaMessage)
-# %%
-
-for fname in os.listdir(DATA_FOLDER_PATH):
-    midi = MidiFile(os.path.join(DATA_FOLDER_PATH, fname))
-    print(midi)
-
-# %%
-
-len(str(midi.tracks[0][10]).split(" ")) != NOTE_ATTRIBUTES
+# for fname in os.listdir(DATA_FOLDER_PATH):
+#     midi = MidiFile(os.path.join(DATA_FOLDER_PATH, fname))
+#     print(midi)
 
 # %%
 
-len(str(midi.tracks[0][10]).split(" "))
-# %%
-'channel' not in str(midi.tracks[0][10])
+# len(str(midi.tracks[0][10]).split(" ")) != NOTE_ATTRIBUTES
 
-# %%
+# # %%
 
-midi.tracks
+# len(str(midi.tracks[0][10]).split(" "))
+# # %%
+# 'channel' not in str(midi.tracks[0][10])
 
-findNoteDuration(69, midi.tracks[0][3:])
-# %%
+# # %%
 
-def print_trackk(track):
-    '''
-    Do Something
+# midi.tracks
+
+# findNoteDuration(69, midi.tracks[0][3:])
+# # %%
+
+# def print_trackk(track):
+#     '''
+#     Do Something
 
 
-    '''
-    for i, msg in enumerate(track):
-        print(msg)
-    return
+#     '''
+#     for i, msg in enumerate(track):
+#         print(msg)
+#     return
 
-# %%
+# # %%
 
-for i, msg in enumerate(a.tracks[1]):
+# for i, msg in enumerate(a.tracks[1]):
     
-    print(msg)
-# %%
+#     print(msg)
+# # %%
 
-tpb = midi.ticks_per_beat
+# tpb = midi.ticks_per_beat
 # tempo = midi.tracks[0][2].tempo
 # time = midi.tracks[1][2].time
 
@@ -139,35 +141,35 @@ for j, message in enumerate(midi.tracks[1]):
 # %%
 
 
-x = [0, 1, np.nan, 1, 2,np.nan, 1, 3]
-y = [56, 56, np.nan, 54, 54,np.nan, 45, 45]
+# x = [0, 1, np.nan, 1, 2,np.nan, 1, 3]
+# y = [56, 56, np.nan, 54, 54,np.nan, 45, 45]
 
-plt.plot(x, y)
+# plt.plot(x, y)
 
-# %%
+# # %%
 
-nann = np.empty((2,10))
-nann[:] = np.nan
-# %%
+# nann = np.empty((2,10))
+# nann[:] = np.nan
+# # %%
 
-nann
-# %%
-max_line = 200
+# nann
+# # %%
+# max_line = 200
 
-for i in midi.play():
-    print(i)
-    if max_line == 0:
-        break
-    max_line -= 1 
-# %%
+# for i in midi.play():
+#     print(i)
+#     if max_line == 0:
+#         break
+#     max_line -= 1 
+# # %%
 
-plt.figure(figsize=(14,6))
-plt.plot(ticks[:100], notes[:100])
-plt.show()
+# plt.figure(figsize=(14,6))
+# plt.plot(ticks[:100], notes[:100])
+# plt.show()
 
-# %%
-plt.figure(figsize=(30,8))
-plt.scatter(times[:100], notes[:100])
+# # %%
+# plt.figure(figsize=(30,8))
+# plt.scatter(times[:100], notes[:100])
 # %%
 # Constants for instrument creation
 PERC = True
@@ -197,9 +199,6 @@ class MEvent:
     def __repr__(self):
         return str(self)
 
-# %%
-
-print_trackk(midi.tracks[0])
 # %%
 
 #------------------------------ Data Preprocessing ---------------------------------#
@@ -339,55 +338,6 @@ def map_note_to_array(stred, max_tick):
 
     return array.tolist()[500:1500]
 
-
-# %%
-
-t = np.asarray([[0,1,2,3,4],[1,2,3,4,5]])
-
-t[:,1] += 1
-
-t
-
-# %%
-
-midi = MidiFile(noo)
-tpb = midi.ticks_per_beat
-st, maxTick = structurize_track(midi.tracks[0], tpb)
-
-# x, y = map_note_to_graph(structurize_track(midi.tracks[0], tpb))
-arr = map_note_to_array(st, maxTick)
-
-# %%
-# plt.figure(figsize=(14,6))
-
-plt.imshow(arr[2800:3000,:])
-
-# %%
-
-arr
-# %%
-cnt = 0
-for e in st:
-    print(e)
-    # if cnt == 100:
-    #     break
-    cnt += 1
-
-# %%
-
-cnt = 0
-for e in midi.tracks[0]:
-    print(e)
-    if cnt == 100:
-        break
-    cnt += 1
-
-
-# %%
-plt.figure(figsize=(20,6))
-plt.plot(y[:], x[:])
-
-
 # %%
 
 class DataGenerator(Sequence):
@@ -418,6 +368,7 @@ class DataGenerator(Sequence):
         self.fname = []
 
         self.data = []
+        self.y = []
 
         self.validation_split = validation_split
         self.data_size = 0
@@ -469,6 +420,18 @@ class DataGenerator(Sequence):
                 st, maxTick = structurize_track(midi.tracks[0], tpb) # If type == 0 -> midi just have 1 track.
                 arr = map_note_to_array(st, maxTick)
                 self.data.append(arr)
+                self.y.append(arr)
+
+        self.data = np.expand_dims(np.asarray(self.data), axis=4)
+        self.y = np.expand_dims(np.asarray(self.y), axis=4)
+
+    def shuffle_data(self):
+
+        for i in range(len(self.y) // 2):
+            idx = random.randint(0, len(self.y) - 1)
+            tmp = self.y[i]
+            self.y[i] = self.y[idx]
+            self.y[idx] = tmp
 
     def on_epoch_end(self):
         self.indexes = np.arange(len(self.list_IDs))
@@ -491,21 +454,27 @@ dataGen = DataGenerator(DATA_FOLDER_PATH)
 # %%
 
 dataGen.extract_data()
+dataGen.shuffle_data()
 
 
 # %%
 
-x = np.asarray(dataGen.data)
+x = dataGen.data
+y = dataGen.y
 
+# # %%
+
+# y.shape
+
+# # %%
+
+# list(dataGen.data[0])
+
+# # %%
+# plt.imshow(x[0,:,:,0])
 # %%
 
-list(dataGen.data[0])
-
-# %%
-plt.imshow(dataGen.data[0][800:1100, :])
-# %%
-
-# Dummy Datagen
+#------------------------------------------- Dummy Datagen ---------------------------------#
 
 class DummyGen(Sequence):
     def __init__(self, batch_size=32, dim=(None, None),
@@ -542,7 +511,9 @@ class DummyGen(Sequence):
 
 # %%
 
-def model (shape=(None, MIDI_NOTES.shape[0], N_CHANNELS)):
+#----------------------------------------- Models ----------------------------------#
+
+def conv_autoencoder_1 (shape=(None, MIDI_NOTES.shape[0], N_CHANNELS)):
     in_tensor = Input(shape=shape)
 
     tensor = Conv2D(64, (1,1), activation = 'relu', padding='valid')(in_tensor)
@@ -564,42 +535,80 @@ def model (shape=(None, MIDI_NOTES.shape[0], N_CHANNELS)):
     tensor = UpSampling2D(2)(tensor)
 
     model = Model(in_tensor, tensor)
-    adam = Adam(lr = 10e-6)
-    model.compile(optimizer=adam, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    adam = Adam(lr = 10e-4)
+    model.compile(optimizer=adam, loss='mean_squared_error', metrics=['accuracy'])
 
     return model
 
+def conv_autoencoder_2(shape=(None, MIDI_NOTES.shape[0], N_CHANNELS)):
+
+    in_tensor = Input(shape=shape)
+    
+    tensor = Conv2D(32, (3, 3), activation='relu', padding='same')(in_tensor)
+    tensor = MaxPooling2D((2, 2), padding='same')(tensor)
+    tensor = Conv2D(16, (3, 3), activation='relu', padding='same')(tensor)
+    tensor = MaxPooling2D((2, 2), padding='same')(tensor)
+    tensor = Conv2D(8, (3, 3), activation='relu', padding='same')(tensor)
+    encoded = MaxPooling2D((2, 2), padding='same')(tensor)
+
+    # at this point the representation is (4, 4, 8) i.e. 128-dimensional
+
+    tensor = Conv2D(8, (3, 3), activation='relu', padding='same')(encoded)
+    tensor = UpSampling2D((2, 2))(tensor)
+    tensor = Conv2D(16, (3, 3), activation='relu', padding='same')(tensor)
+    tensor = UpSampling2D((2, 2))(tensor)
+    tensor = Conv2D(32, (3, 3), activation='relu', padding='same')(tensor)
+    tensor = UpSampling2D((2, 2))(tensor)
+    decoded = Conv2D(1, (3, 3), activation='sigmoid', padding='same')(tensor)
+
+    autoencoder = Model(in_tensor, decoded)
+
+    adadelta = Adadelta(lr=10e-4)
+    autoencoder.compile(optimizer=adadelta, loss='binary_crossentropy')
+
+    return autoencoder
+
+def conv_vae():
+    # TODO: To implement!
+    return
 # %%
 
-model = model()
-model.summary()
+autoencoder = conv_autoencoder_2()
+autoencoder.summary()
 
 # %%
 
-model.fit(
+history = autoencoder.fit(
     x=x,
-    y=x,
-    batch_size=3,
-    epochs=100,
+    y=y,
+    batch_size=8,
+    epochs=20000,
     verbose=1,
-    validation_split=0.1
+    validation_split=0.15,
+    callbacks=[TensorBoard(log_dir='/tmp/autoencoder')]
 )
 
 
 
 # %%
 
-dataGen.data[0].shape
+#----------------------------------------------- Predict -------------------------------------#
+
+predict = model.predict(x[:1])
+
+
 
 # %%
 
-x = dataGen.data
+#---------------------------------------------- Show --------------------------------------------#
 
-x = np.expand_dims(np.asarray(x), axis=4)
+plt.imshow(x[0,:,:,0])
+
 
 # %%
 
-x.shape
+#------------------------------------------------- Show -------------------------------------------#
+plt.imshow(predict[0,:,:,0])
 
 
 
@@ -608,25 +617,30 @@ x.shape
 
 
 
+# %%
 
 
 
 
+# decoded_imgs = autoencoder.predict(x_test)
 
+# n = 10
+# plt.figure(figsize=(20, 4))
+# for i in range(n):
+#     # display original
+#     ax = plt.subplot(2, n, i)
+#     plt.imshow(x_test[i].reshape(28, 28))
+#     plt.gray()
+#     ax.get_xaxis().set_visible(False)
+#     ax.get_yaxis().set_visible(False)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+#     # display reconstruction
+#     ax = plt.subplot(2, n, i + n)
+#     plt.imshow(decoded_imgs[i].reshape(28, 28))
+#     plt.gray()
+#     ax.get_xaxis().set_visible(False)
+#     ax.get_yaxis().set_visible(False)
+# plt.show()
 
 
 
@@ -657,10 +671,6 @@ composed.save('composed.mid')
 # %%
 
 compo = MidiFile('composed.mid')
-
-# %%
-
-compo.ticks_per_beat
 
 
 # %%
@@ -701,49 +711,3 @@ model.fit_generator(train_generator(), steps_per_epoch=30, epochs=10, verbose=1)
 for x,y in train_generator():
     print(x.shape)
 
-
-# %%
-from keras.layers import UpSampling2D
-def img_auto_encoder():
-    input_img = Input(shape=(28, 28, 1))  # adapt this if using `channels_first` image data format
-
-    x = Conv2D(16, (3, 3), activation='relu', padding='same')(input_img)
-    x = MaxPooling2D((2, 2), padding='same')(x)
-    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
-    x = MaxPooling2D((2, 2), padding='same')(x)
-    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
-    encoded = MaxPooling2D((2, 2), padding='same')(x)
-
-    # at this point the representation is (4, 4, 8) i.e. 128-dimensional
-
-    x = Conv2D(8, (3, 3), activation='relu', padding='same')(encoded)
-    x = UpSampling2D((2, 2))(x)
-    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
-    x = UpSampling2D((2, 2))(x)
-    x = Conv2D(16, (3, 3), activation='relu')(x)
-    x = UpSampling2D((2, 2))(x)
-    decoded = Conv2D(1, (3, 3), activation='sigmoid', padding='same')(x)
-
-    autoencoder = Model(input_img, decoded)
-    
-    autoencoder.compile(optimizer='adadelta', loss='binary_crossentropy')
-    return autoencoder
-# %%
-
-model = img_auto_encoder()
-model.summary()
-
-# %%
-
-import numpy as np
-
-# %%
-
-count = 0
-for x in range(-20, 20, 1):
-    for y in range (-20, 20, 1):
-        if x * x + y * y <= 100:
-            print ('{}^2+{}^2={}'.format(x, y, x * x + y * y))
-            count += 1
-
-count
