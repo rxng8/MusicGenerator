@@ -40,6 +40,7 @@ from keras.metrics import categorical_accuracy
 from keras.utils import Sequence
 from keras.optimizers import Adam, SGD, RMSprop, Adadelta
 from keras.callbacks import TensorBoard
+from keras.callbacks import ModelCheckpoint
 
 # Utils
 
@@ -433,6 +434,8 @@ class DataGenerator(Sequence):
             self.y[i] = self.y[idx]
             self.y[idx] = tmp
 
+    
+
     def on_epoch_end(self):
         self.indexes = np.arange(len(self.list_IDs))
         if self.shuffle == True:
@@ -564,7 +567,7 @@ def conv_autoencoder_2(shape=(None, MIDI_NOTES.shape[0], N_CHANNELS)):
     autoencoder = Model(in_tensor, decoded)
 
     adadelta = Adadelta(lr=10e-4)
-    autoencoder.compile(optimizer=adadelta, loss='binary_crossentropy')
+    autoencoder.compile(optimizer=adadelta, loss='mean_squared_error')
 
     return autoencoder
 
@@ -577,15 +580,18 @@ autoencoder = conv_autoencoder_2()
 autoencoder.summary()
 
 # %%
+filepath = 'checkpoint/'
+checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
+
 
 history = autoencoder.fit(
-    x=x,
+    x=np.zeros(shape=y.shape),
     y=y,
     batch_size=8,
-    epochs=20000,
+    epochs=200,
     verbose=1,
     validation_split=0.15,
-    callbacks=[TensorBoard(log_dir='/tmp/autoencoder')]
+    callbacks=[TensorBoard(log_dir='/tmp/autoencoder'), checkpoint]
 )
 
 
@@ -594,7 +600,7 @@ history = autoencoder.fit(
 
 #----------------------------------------------- Predict -------------------------------------#
 
-predict = model.predict(x[:1])
+predict = autoencoder.predict(x[1:2])
 
 
 
@@ -608,8 +614,18 @@ plt.imshow(x[0,:,:,0])
 # %%
 
 #------------------------------------------------- Show -------------------------------------------#
+
 plt.imshow(predict[0,:,:,0])
 
+
+# %%
+
+x[0,:,:,0]
+
+# %%
+
+
+predict[0,:,:,0]
 
 
 

@@ -1,11 +1,11 @@
 # Music Generator Project
 
 This is a written project with regard to processing sound using keras deep learning library. These are the planned application:
-- [x] Genres classification
+- [x] [Genres classification](https://github.com/dewanderelex/SoundProcessing)
 - [ ] Music auto-tagging
 - [ ] Instrumental classification
 - [ ] Tempo classification
-- [x] Deep Learning Jazz generator
+- [x] [Deep Learning Jazz generator](https://github.com/dewanderelex/MusicGenerator)
 - [ ] Sort music by genres, artist, tempo, tags
 - [ ] Piano analysis
 -------------
@@ -18,6 +18,9 @@ This is a written project with regard to processing sound using keras deep learn
 
 #### Sep 22, 2019:
 - Researching on processing Midi file format: tracks, messages, channels, etc.
+
+#### Sep 23, 2019:
+- More research on processing Midi file format: tracks, messages, channels, etc.
 
 -------------
 
