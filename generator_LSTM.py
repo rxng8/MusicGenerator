@@ -178,7 +178,7 @@ INST = False
 #------------------------------------------- Note Class ---------------------------------------------------#
 
 
-class MEvent:
+class NoteEvent:
     """
     MEvent is a fairly direct representation of Haskell Euterpea's MEvent type,
     which is for event-style reasoning much like a piano roll representation.
@@ -186,16 +186,15 @@ class MEvent:
     128bpm. The patch field should be a patch number, like the patch field of
     the Instrument class.
     """
-    def __init__(self, eTime, pitch, duration, velocity=64, patch=(-1, INST)):
+    def __init__(self, eTime, pitch, duration, velocity=64):
         self.eTime = eTime  # current time
         self.pitch = pitch
         self.duration = duration
         self.velocity = velocity
-        self.patch = patch
         self.sTime = eTime + self.duration  # Stop time
 
     def __str__(self):
-        return "MEvent(eTime: {0}, pitch: {1}, duration: {2}, velocity: {3}, patch: {4}, sTime: {5})".format(str(self.eTime), str(self.pitch), str(self.duration), str(self.velocity), str(self.patch), str(self.sTime))
+        return "NoteEvent(eTime: {0}, pitch: {1}, duration: {2}, velocity: {3}, patch: {4}, sTime: {5})".format(str(self.eTime), str(self.pitch), str(self.duration), str(self.velocity), str(self.patch), str(self.sTime))
 
     def __repr__(self):
         return str(self)
@@ -231,17 +230,16 @@ def findNoteDuration(pitch, channel, events):
                 return sumTicks
     return sumTicks
 
-
-def tickToDur(ticks, resolution = 96):
-    '''
-    Convert from pythonmidi ticks back to PythonEuterpea durations
-    :param ticks: number of ticks
-    :param resolution: ticks_per_beat
-    :return:
-    '''
-    #return float(ticks) / float((RESOLUTION * 4))
-    return round(float(ticks) * TICK_SCALER)
-    # return ticks // (resolution * 4)
+'''
+Find the interval of the notes
+:param note: (NoteEvent) A particular note
+:param tempo: (Integer) Tempo of the midi file
+:param ticks_per_beat: (Integer) tpb
+:return : (Double) a number denoting the interval. Eg: 1/2, 1/4, 1/8, 1/16
+'''
+def __find_note_form(note, tempo, ticks_per_beat):
+    note_ticks = note.duration
+    return 
 
 def getChannel(track):
     '''
@@ -258,10 +256,11 @@ def getChannel(track):
             return track[0].channel
     return -1
 
+'''
+
+'''
 def structurize_track(midi_track, ticks_per_beat, default_patch=-1):
-    '''
-    
-    '''
+
 
     currChannel = -1
     currTick = 0
@@ -306,7 +305,7 @@ def structurize_track(midi_track, ticks_per_beat, default_patch=-1):
         else:
             print("Unsupported event type (ignored): ", e.type, vars(e),e)
             pass
-    return stred, tickToDur(currTick)
+    return stred, currTick
 
 def map_note_to_graph(stred):
     '''
@@ -322,12 +321,14 @@ def map_note_to_graph(stred):
         y = np.append(y, [e.eTime, e.eTime + e.duration, np.nan])
     return x, y
 
+
+'''
+Create a 2D array out of a structures file!
+:param stred: array of NoteEvent
+:return array: a 2D array with shape (max_tick, note_range) where x axis is pitch and y axis is time.
+'''
 def map_note_to_array(stred, max_tick):
-    '''
-    Create a 2D array out of a structures file!
-    :param stred: array of MEvent
-    :return array: a 2D array with shape (max_tick, note range) where x axis is pitch and y axis is time.
-    '''
+
     array = np.zeros(shape=(max_tick, MIDI_NOTES.shape[0]))
 
     for i, event in enumerate(stred):
@@ -339,177 +340,35 @@ def map_note_to_array(stred, max_tick):
 
     return array.tolist()[500:1500]
 
+'''
+Create a 2D array out of a structures file!
+:param stred: array of NoteEvent
+:return array: a 3D array with shape (n_notes, n_intervals, n_pitches) where axis 0 is the sequence of notes, 
+    axis 1 is the type of each note(eg. quarter note, half note, whole note, etc), 
+    and axis 2 is the pitch of that note.
+'''
+def map_note_to_sequence(stred):
+    return 0
+
 # %%
 
-class DataGenerator(Sequence):
-    """
-    :param data_path: (String) This is the base folder data.
-    :param batch_size: (int32) This is the base folder data.
-    :param dim: (Tuple: (a, b, c)) 3D tuple shape of input dimension
-    :param n_channels: (int32) Number of channel.
-    :param n_classes: (int32) Number of classes.
-    :param shuffle: (boolean) Specify whether or not you want to shuffle the data to be trained.
-    """
-    def __init__(self, data_path, batch_size=32, dim=(128,1308), n_channels=1,
-             n_classes=10, shuffle=True, validation_split=0.1):
-        """
-        :var self.classes:
-        :var self.labels:
-        :var self.fname:
-        :var self.data:
-        :var self.dim:
-        :var self.batch_size:
-        :var self.list_IDs:
-        :var self.n_channels:
-        :var self.n_classes:
-        :var self.shuffle:
-        :var self.tokenizer:
-        :var self.data_path:
-        """
-        self.fname = []
+#------------------------------------- Data Extraction ----------------------------------#
 
-        self.data = []
-        self.y = []
-
-        self.validation_split = validation_split
-        self.data_size = 0
-        self.data_shape = (None,None)
-        self.data_path = data_path
-        self.dim = dim
-        self.batch_size = batch_size
-        self.list_IDs = []
-        self.n_channels = n_channels
-        self.n_classes = n_classes
-        self.shuffle = shuffle
-        self.on_epoch_end()
-        self.load_data()
-        
-    """
-    :param data_path: (String) The actual base folder of data
-    """
-    def load_data(self):
-        cnt = 0
-        for i, _file in enumerate(os.listdir(self.data_path)):
-            
-            fname = os.path.join(self.data_path, _file)
-            # TODO: Check if the data is good
-            
-            midi = MidiFile(fname)
-            if midi.type == 0:
-                print('{} has {} tracks'.format(fname, len(midi.tracks)))
-                self.fname.append(fname)
-                cnt +=1
-            
-        print('Found {} midi file with unique track in data folder!'.format(cnt))
-
-    """
-    Utilities method for classes
-    :param filename: Name of the file
-    """
-    def load_midifile(filename):
-        return
-
-    # Temp extract data
-    def extract_data(self):
-        for fname in self.fname:
-            midi = MidiFile(fname)
-            tpb = midi.ticks_per_beat
-            print('Extracting {}'.format(fname))
-            if midi.type == 0:
-                # x, y = map_note_to_graph(structurize_track(midi.tracks[0], tpb))
-                # arr = map_note_to_array(*structurize_track(track, tpb))
-                st, maxTick = structurize_track(midi.tracks[0], tpb) # If type == 0 -> midi just have 1 track.
-                arr = map_note_to_array(st, maxTick)
-                self.data.append(arr)
-                self.y.append(arr)
-
-        self.data = np.expand_dims(np.asarray(self.data), axis=4)
-        self.y = np.expand_dims(np.asarray(self.y), axis=4)
-
-    def shuffle_data(self):
-
-        for i in range(len(self.y) // 2):
-            idx = random.randint(0, len(self.y) - 1)
-            tmp = self.y[i]
-            self.y[i] = self.y[idx]
-            self.y[idx] = tmp
-
+"""
+:param data_path: (String) The actual file
+"""
+def extract_data(data_path):
     
-
-    def on_epoch_end(self):
-        self.indexes = np.arange(len(self.list_IDs))
-        if self.shuffle == True:
-            np.random.shuffle(self.indexes)
-
-    def __data_generation(self, list_IDs_temp):
-        return
-
-    def __len__(self):
-        return
-
-    def __getitem__(self, index):
-        return
-
-# %%
-
-dataGen = DataGenerator(DATA_FOLDER_PATH)
-
-# %%
-
-dataGen.extract_data()
-dataGen.shuffle_data()
-
-
-# %%
-
-x = dataGen.data
-y = dataGen.y
-
-# # %%
-
-# y.shape
-
-# # %%
-
-# list(dataGen.data[0])
-
-# # %%
-# plt.imshow(x[0,:,:,0])
-# %%
-
-#------------------------------------------- Dummy Datagen ---------------------------------#
-
-class DummyGen(Sequence):
-    def __init__(self, batch_size=32, dim=(None, None),
-             n_classes=10, shuffle=True, validation_split=0.1):
-
-        self.data_shape = (None,None)
-        self.dim = dim
-        self.batch_size = batch_size
-        self.list_IDs = []
-        self.n_channels = n_channels
-        self.n_classes = n_classes
-        self.shuffle = shuffle
-        self.on_epoch_end()
-        self.load_data()
-        
-
-    def load_data(self):
-
-
-    def on_epoch_end(self):
-        self.indexes = np.arange(len(self.list_IDs))
-        if self.shuffle == True:
-            np.random.shuffle(self.indexes)
-
-    def __data_generation(self, list_IDs_temp):
-        return
-
-    def __len__(self):
-        return
-
-    def __getitem__(self, index):
-        return
+    midi = MidiFile(data_path)
+    tpb = midi.ticks_per_beat
+    print('Extracting {}'.format(data_path))
+    if midi.type == 0:
+        # x, y = map_note_to_graph(structurize_track(midi.tracks[0], tpb))
+        # arr = map_note_to_array(*structurize_track(track, tpb))
+        st, maxTick = structurize_track(midi.tracks[0], tpb) # If type == 0 -> midi just have 1 track.
+        arr = map_note_to_array(st, maxTick)
+        self.data.append(arr)
+        self.y.append(arr)
 
 
 # %%
