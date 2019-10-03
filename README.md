@@ -46,7 +46,7 @@ This is a written project with regard to processing sound using keras deep learn
 #### Oct 1, 2019:
 - Switch from CNN model to seg-to-seg LSTM model. Do more research.
 
-#### Oct 1, 2019:
+#### Oct 3, 2019:
 - Split the main notebook into one with music generator processing as image processing, the other as sequence processing (CNN and LSTM).
 - Utilize a unique class for a note event for efficient data pre-processing.
 - Add function to build note matrix from midi tracks.
