@@ -728,12 +728,11 @@ for x,y in train_generator():
     print(x.shape)
 
 # %%
-
+from keras.layers import TimeDistributed
 def lstm_3d():
-    in_tensor = Input(shape=(10, 10, 10))
+    in_tensor = Input(shape=(10, 10))
     tensor = LSTM(64, activation='relu')(in_tensor)
-    tensor = Flatten()(tensor)
-    tenosr = Dense(2, activation='sigmoid')(tensor)
+    tensor = Dense(10, activation='sigmoid')(tensor)
 
     model = Model(in_tensor, tensor)
     model.compile(optimizer='sgd', loss='categorical_crossentropy', metrics=['acc'])
@@ -746,4 +745,25 @@ def lstm_3d():
 model = lstm_3d()
 model.summary()
 
+# %%
 
+
+# %%
+
+x = np.arange(10000).reshape((100,10,10))
+y = np.zeros(shape=(100,10))
+
+for i in range(300):
+    a = random.randint(0, 99)
+    b = random.randint(0, 9)
+    y[a][b] = 1
+
+
+
+# %%
+
+model.fit(x, y, batch_size=10, epochs=100)
+
+# %%
+
+model.predict(x[:5])
