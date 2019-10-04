@@ -67,23 +67,51 @@ N_CHANNELS = 1
 
 testFile = 'dataset_piano_jazz/AHouseis.mid'
 midi = MidiFile(testFile)
+tpb = midi.ticks_per_beat
 
-# # %%
-
-# for fname in os.listdir(DATA_FOLDER_PATH):
-#     midi = MidiFile(os.path.join(DATA_FOLDER_PATH, fname))
-#     if midi.type == 0:
-#         print(midi.tracks)
-            
-
-# # %%
-
-# isinstance(midi.tracks[0][0], MetaMessage)
 # %%
 
-# for fname in os.listdir(DATA_FOLDER_PATH):
-#     midi = MidiFile(os.path.join(DATA_FOLDER_PATH, fname))
-#     print(midi)
+
+# %%
+
+stred, maxTick = structurize_track(midi.tracks[0], tpb)
+
+# %%
+intervals = []
+for note in stred:
+    intervals.append(note.duration / tpb)
+
+
+# %%
+
+intervals
+
+
+# %%
+
+intervals[-10:]
+
+# %%
+
+plt.bar(np.arange(len(intervals)), intervals)
+
+
+# %%
+
+for fname in os.listdir(DATA_FOLDER_PATH):
+    midi = MidiFile(os.path.join(DATA_FOLDER_PATH, fname))
+    if midi.type == 0:
+        print(midi.tracks)
+            
+
+# %%
+
+isinstance(midi.tracks[0][0], MetaMessage)
+# %%
+
+for fname in os.listdir(DATA_FOLDER_PATH):
+    midi = MidiFile(os.path.join(DATA_FOLDER_PATH, fname))
+    print(midi)
 
 # %%
 
@@ -180,21 +208,18 @@ INST = False
 
 class NoteEvent:
     """
-    MEvent is a fairly direct representation of Haskell Euterpea's MEvent type,
+    NoteEvent is a fairly direct representation of Haskell Euterpea's MEvent type,
     which is for event-style reasoning much like a piano roll representation.
-    eTime is absolute time for a tempo of 120bpm. So, 0.25 is a quarter note at
-    128bpm. The patch field should be a patch number, like the patch field of
-    the Instrument class.
+    start_time is absolute time for a tempo of 120bpm.
     """
-    def __init__(self, eTime, pitch, duration, velocity=64):
-        self.eTime = eTime  # current time
+    def __init__(self, start_tick, pitch, duration, velocity=64):
+        self.start_tick = start_tick  # current time
         self.pitch = pitch
         self.duration = duration
-        self.velocity = velocity
-        self.sTime = eTime + self.duration  # Stop time
+        self.stop_tick = start_tick + self.duration  # Stop time
 
     def __str__(self):
-        return "NoteEvent(eTime: {0}, pitch: {1}, duration: {2}, velocity: {3}, patch: {4}, sTime: {5})".format(str(self.eTime), str(self.pitch), str(self.duration), str(self.velocity), str(self.patch), str(self.sTime))
+        return "NoteEvent(start_tick: {0}, duration: {1}, stop_tick: {2},  pitch: {3})".format(str(self.start_tick), str(self.duration), str(self.stop_tick), str(self.pitch))
 
     def __repr__(self):
         return str(self)
@@ -203,7 +228,7 @@ class NoteEvent:
 
 #------------------------------ Data Preprocessing ---------------------------------#
 
-def findNoteDuration(pitch, channel, events):
+def __find_note_duration(pitch, channel, events):
     '''
     Scan through a list of MIDI events looking for a matching note-off.
     A note-on of the same pitch will also count to end the current note,
@@ -275,7 +300,6 @@ def structurize_track(midi_track, ticks_per_beat, default_patch=-1):
         _type = msg.type
 
         if isinstance(msg, MetaMessage) or len(str(msg).split(" ")) != NOTE_ATTRIBUTES or 'channel' not in str(msg):
-            
             continue
 
         currChannel = msg.channel
@@ -285,12 +309,15 @@ def structurize_track(midi_track, ticks_per_beat, default_patch=-1):
             currPatch = msg.program
         elif _type == 'control_change':
             pass
-        elif _type == 'note_on':
+        elif _type == 'note_on' and msg.velocity != 0:
+
             # Finding durtation of the note!
-            tick_duration = findNoteDuration(msg.note, currChannel, midi_track[(i+1):])
+            tick_duration = __find_note_duration(msg.note, currChannel, midi_track[(i+1):])
+
             # Create instance for this note!
             # event = MEvent(tickToDur(currTick, ticks_per_beat), msg.note, tickToDur(tick_duration, ticks_per_beat), msg.velocity, currPatch)
-            event = MEvent(tickToDur(currTick), msg.note, tickToDur(tick_duration), msg.velocity, currPatch)
+            event = NoteEvent(currTick, msg.note, tick_duration, msg.velocity)
+
             # stred.append([currChannel, event]) # Does Current channel matter in the whole picture?
             stred.append(event)
 
@@ -300,7 +327,7 @@ def structurize_track(midi_track, ticks_per_beat, default_patch=-1):
         elif _type == 'key_signature':
             print("TO-DO: handle key signature event")
             pass # need to handle this later
-        elif _type == 'note_off' or 'end_of_track':
+        elif _type == 'note_off' or 'end_of_track' or msg.velocity == 0:
             pass # nothing to do here; note offs and track ends are handled in on-off matching in other cases.
         else:
             print("Unsupported event type (ignored): ", e.type, vars(e),e)
