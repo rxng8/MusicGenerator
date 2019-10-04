@@ -53,6 +53,10 @@ ata = 'test_data/Atavachron.mid'
 noc = 'test_data/chno0902.mid'
 noo = 'test_data/NoOneInTheWorld.mid'
 
+# Time Signature
+NUMERATOR = 4
+DENOMN+MINATOR = 4
+
 DATA_FOLDER_PATH = 'dataset_piano_jazz'
 MIDI_NOTES = np.arange(21, 109)
 MIDI_NOTES_MAP = {
@@ -402,6 +406,11 @@ def extract_data(data_path):
 
 #----------------------------------------- Models ----------------------------------#
 
+
+####################### Model with multi-label classification ? ######################
+
+
+
 def conv_autoencoder_1 (shape=(None, MIDI_NOTES.shape[0], N_CHANNELS)):
     in_tensor = Input(shape=shape)
 
@@ -468,7 +477,8 @@ autoencoder.summary()
 # %%
 filepath = 'checkpoint/'
 checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
-
+log = TensorBoard(log_dir='/tmp/autoencoder')
+callbacks_list = [log, checkpoint]
 
 history = autoencoder.fit(
     x=np.zeros(shape=y.shape),
@@ -477,7 +487,7 @@ history = autoencoder.fit(
     epochs=200,
     verbose=1,
     validation_split=0.15,
-    callbacks=[TensorBoard(log_dir='/tmp/autoencoder'), checkpoint]
+    callbacks=callbacks_list
 )
 
 
