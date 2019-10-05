@@ -241,7 +241,8 @@ class RestEvent:
     """
     
     """
-    def __init__(self)
+    def __init__(self):
+        return
 
 # %%
 
@@ -418,15 +419,33 @@ def map_note_to_sequence(stred):
     note_matrix_length = MIDI_NOTES.shape[0] * len(BEATS)
 
     for _note in stred:
-        note_matrix = np.zeros(shape=(len(BEATS), MIDI_NOTES.shape[0])
+        note_matrix = np.zeros(shape=(len(BEATS), MIDI_NOTES.shape[0]))
 
-        note_matrix[_note.type, _note.pitch] = 1
+        note_matrix[_note.noteType][_note.pitch - MIDI_PITCH_TO_INDEX_CONSTANT] = 1
 
         note_matrix = note_matrix.reshape(note_matrix_length)
 
-        sequence.append(note_matrix)
+        sequence.append(note_matrix.tolist())
         
-    return sequence
+    return np.asarray(sequence)
+
+def generate_x_y (sequence, sequence_length):
+
+    n_samples = int(len(sequence) // sequence_length)
+
+    # Split the whole sequence in to n_samples of sequence length sequences.
+    return_x = np.reshape(sequence[:n_samples*sequence_length], (n_samples, sequence_length, sequence.shape[1]))
+
+    # Create training label, which is the note after a sequence at n-th sample.
+    return_y = []
+    for i, sample in enumerate(return_x):
+        # Append the first note in the next sequence
+        # Because there are no next note in after the last sequence, I just dont use the last sequence
+        if i + 1 < return_x.shape[0]:
+            return_y.append(return_x[i+1,0])
+
+    return return_x[:-1], np.asarray(return_y)
+
 
 # %%
 
@@ -441,12 +460,27 @@ def extract_data(data_path):
     tpb = midi.ticks_per_beat
     print('Extracting {}'.format(data_path))
     if midi.type == 0:
-        # x, y = map_note_to_graph(structurize_track(midi.tracks[0], tpb))
-        # arr = map_note_to_array(*structurize_track(track, tpb))
+        
         st, maxTick = structurize_track(midi.tracks[0], tpb) # If type == 0 -> midi just have 1 track.
-        arr = map_note_to_array(st, maxTick)
-        self.data.append(arr)
-        self.y.append(arr)
+        arr = map_note_to_sequence(st)
+        
+    return arr
+
+
+# %%
+
+########################################### Runner ########################################
+
+arr = extract_data(testFile)
+
+# %%
+sequence_length = 100
+x, y = generate_x_y(arr, sequence_length)
+
+# %%
+
+y.shape
+
 
 
 # %%
@@ -516,16 +550,37 @@ def conv_autoencoder_2(shape=(None, MIDI_NOTES.shape[0], N_CHANNELS)):
 def conv_vae():
     # TODO: To implement!
     return
+
+
+def simple_lstm_model(sequence_length, note_range):
+    in_tensor = Input(shape=(sequence_length, note_range))
+    tensor = LSTM(128, activation='relu', return_sequences=True)(in_tensor)
+    tensor = Dropout(0.2)(tensor)
+    tensor = LSTM(64, activation='relu')(tensor)
+    tensor = Dropout(0.2)(tensor)
+    tensor = Dense(note_range, activation='sigmoid')(tensor)
+
+    model = Model(in_tensor, tensor)
+    rmsprop = RMSprop(lr=10e-4)
+    model.compile(optimizer=rmsprop, loss='categorical_crossentropy', metrics=['acc'])
+    return model
+
+
 # %%
 
-autoencoder = conv_autoencoder_2()
-autoencoder.summary()
+########################################### RUNNER ####################################
+
+sequence_length = 100
+
+model = simple_lstm_model(sequence_length, x.shape[-1])
+model.summary()
+
 
 # %%
 filepath = 'checkpoint/'
 checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
-log = TensorBoard(log_dir='/tmp/autoencoder')
-callbacks_list = [log, checkpoint]
+
+callbacks_list = [checkpoint]
 
 history = autoencoder.fit(
     x=np.zeros(shape=y.shape),
