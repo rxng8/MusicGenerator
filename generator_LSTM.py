@@ -223,15 +223,16 @@ class NoteEvent:
     which is for event-style reasoning much like a piano roll representation.
     start_time is absolute time for a tempo of 120bpm.
     """
-    def __init__(self, start_tick, pitch, duration, velocity=64, extended=False):
+    def __init__(self, start_tick, pitch, duration, noteType, velocity=64, extended=False):
         self.start_tick = start_tick  # current time
         self.pitch = pitch
         self.duration = duration
         self.stop_tick = start_tick + self.duration  # Stop time
         self.extended = extended
+        self.noteType = noteType
 
     def __str__(self):
-        return "NoteEvent(start_tick: {0}, duration: {1}, stop_tick: {2},  pitch: {3}, extended_note: {4})".format(str(self.start_tick), str(self.duration), str(self.stop_tick), str(self.pitch), str(self.extended))
+        return "NoteEvent(start_tick: {0}, duration: {1}, type: {2}, stop_tick: {3},  pitch: {4}, extended_note: {5})".format(str(self.start_tick), str(self.duration), str(self.noteType), str(self.stop_tick), str(self.pitch), str(self.extended))
 
     def __repr__(self):
         return str(self)
@@ -348,12 +349,14 @@ def structurize_track(midi_track, ticks_per_beat, default_patch=-1):
             # Finding durtation of the note!
             tick_duration = __find_note_duration(msg.note, currChannel, midi_track[(i+1):])
 
-            # Create instance for this note!
-            # event = MEvent(tickToDur(currTick, ticks_per_beat), msg.note, tickToDur(tick_duration, ticks_per_beat), msg.velocity, currPatch)
-            event = NoteEvent(currTick, msg.note, tick_duration, msg.velocity)
+            # With each note in note type, append notes to the matrix
+            for i, n_notes in enumerate(__find_note_form(tick_duration, ticks_per_beat)):
+                event = NoteEvent(currTick, msg.note, tick_duration, i, msg.velocity, True)
+                stred.append(event)
 
-            # stred.append([currChannel, event]) # Does Current channel matter in the whole picture?
-            stred.append(event)
+            # Since the last note of the crushendo is out, extended = False
+            stred[-1].extended = False
+          
 
         elif _type == 'time_signature':
             print("TO-DO: handle time signature event")
@@ -409,7 +412,21 @@ Create a 2D array out of a structures file!
     and axis 2 is the pitch of that note.
 '''
 def map_note_to_sequence(stred):
-    return 0
+
+    sequence = []
+
+    note_matrix_length = MIDI_NOTES.shape[0] * len(BEATS)
+
+    for _note in stred:
+        note_matrix = np.zeros(shape=(len(BEATS), MIDI_NOTES.shape[0])
+
+        note_matrix[_note.type, _note.pitch] = 1
+
+        note_matrix = note_matrix.reshape(note_matrix_length)
+
+        sequence.append(note_matrix)
+        
+    return sequence
 
 # %%
 
