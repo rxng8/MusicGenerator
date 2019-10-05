@@ -69,6 +69,17 @@ NOTE_ATTRIBUTES = 5
 TICK_SCALER = 0.1
 N_CHANNELS = 1
 
+'''
+- 4 beats is a whole note
+- 2 beats is a half note
+- 1 beats is a quarter note
+- 0.5 beats is a eighth note
+- 0.25 beats is a sixteenth note
+- 0.125 beats is a thirty-two note
+'''
+BEATS = [4, 2, 1, 0.5, 0.25, 0.125] 
+
+
 testFile = 'dataset_piano_jazz/AHouseis.mid'
 midi = MidiFile(testFile)
 tpb = midi.ticks_per_beat
@@ -216,14 +227,15 @@ class NoteEvent:
     which is for event-style reasoning much like a piano roll representation.
     start_time is absolute time for a tempo of 120bpm.
     """
-    def __init__(self, start_tick, pitch, duration, velocity=64):
+    def __init__(self, start_tick, pitch, duration, velocity=64, extended=False):
         self.start_tick = start_tick  # current time
         self.pitch = pitch
         self.duration = duration
         self.stop_tick = start_tick + self.duration  # Stop time
+        self.extended = extended
 
     def __str__(self):
-        return "NoteEvent(start_tick: {0}, duration: {1}, stop_tick: {2},  pitch: {3})".format(str(self.start_tick), str(self.duration), str(self.stop_tick), str(self.pitch))
+        return "NoteEvent(start_tick: {0}, duration: {1}, stop_tick: {2},  pitch: {3}, extended_note: {4})".format(str(self.start_tick), str(self.duration), str(self.stop_tick), str(self.pitch), str(self.extended))
 
     def __repr__(self):
         return str(self)
@@ -232,19 +244,22 @@ class NoteEvent:
 
 #------------------------------ Data Preprocessing ---------------------------------#
 
-def __find_note_duration(pitch, channel, events):
-    '''
-    Scan through a list of MIDI events looking for a matching note-off.
-    A note-on of the same pitch will also count to end the current note,
-    assuming an instrument can't play the same note twice simultaneously.
-    If no note-off is found, the end of the track is used to truncate
-    the current note.
 
-    Adding one more case: Channel is mixed within tracks
-    :param pitch:
-    :param events:
-    :return:
-    '''
+'''
+Scan through a list of MIDI events looking for a matching note-off.
+A note-on of the same pitch will also count to end the current note,
+assuming an instrument can't play the same note twice simultaneously.
+If no note-off is found, the end of the track is used to truncate
+the current note.
+
+Adding one more case: Channel is mixed within tracks
+:param pitch:
+:param events:
+:return:
+'''
+@staticmethod
+def __find_note_duration(pitch, channel, events):
+
     sumTicks = 0
     for e in events:
         if isinstance(e, MetaMessage) or len(str(e).split(" ")) != NOTE_ATTRIBUTES or 'channel' not in str(e):
@@ -266,9 +281,23 @@ Find the interval of the notes
 :param ticks_per_beat: (Integer) tpb
 :return : (Double) a number denoting the interval. Eg: 1/2, 1/4, 1/8, 1/16
 '''
-def __find_note_form(note, tempo, ticks_per_beat):
-    note_ticks = note.duration
-    return 
+@staticmethod
+def __find_note_form(duration, tempo, ticks_per_beat):
+    
+    n_beat = duration / ticks_per_beat
+    # Now the beat will have the form of float denoting how many beats that note have
+
+    beat_matrix = []
+    for beat_type in BEATS:
+        if n_beat > beat_type:
+            n_notes = n_beat // beat_type
+            beat_matrix.append(n_notes)
+            n_beat -= n_notes * beat_type
+        else:
+            beat_matrix.append(0)
+
+    return beat_matrix
+
 
 def getChannel(track):
     '''
