@@ -21,7 +21,7 @@ import random
 # Display library
 import IPython.display as ipd
 import matplotlib.pyplot as plt
-%matplotlib inline
+# %matplotlib inline
 plt.interactive(True)
 import librosa.display
 
@@ -55,7 +55,7 @@ noo = 'test_data/NoOneInTheWorld.mid'
 
 # Time Signature
 NUMERATOR = 4
-DENOMN+MINATOR = 4
+DENOMNMINATOR = 4
 
 DATA_FOLDER_PATH = 'dataset_piano_jazz'
 MIDI_NOTES = np.arange(21, 109)
@@ -83,6 +83,7 @@ BEATS = [4, 2, 1, 0.5, 0.25, 0.125]
 testFile = 'dataset_piano_jazz/AHouseis.mid'
 midi = MidiFile(testFile)
 tpb = midi.ticks_per_beat
+
 
 # %%
 
@@ -124,9 +125,7 @@ for fname in os.listdir(DATA_FOLDER_PATH):
 isinstance(midi.tracks[0][0], MetaMessage)
 # %%
 
-for fname in os.listdir(DATA_FOLDER_PATH):
-    midi = MidiFile(os.path.join(DATA_FOLDER_PATH, fname))
-    print(midi)
+__find_note_form(1388, 96)
 
 # %%
 
@@ -170,6 +169,7 @@ for fname in os.listdir(DATA_FOLDER_PATH):
 
 #------------ TEST ----------------#
 cnt = 0
+tempo = 120
 notes = []
 times = []
 curr_time = 0
@@ -185,12 +185,8 @@ for j, message in enumerate(midi.tracks[1]):
 # %%
 
 
-# x = [0, 1, np.nan, 1, 2,np.nan, 1, 3]
-# y = [56, 56, np.nan, 54, 54,np.nan, 45, 45]
 
-# plt.plot(x, y)
-
-# # %%
+# %%
 
 # nann = np.empty((2,10))
 # nann[:] = np.nan
@@ -240,6 +236,12 @@ class NoteEvent:
     def __repr__(self):
         return str(self)
 
+class RestEvent:
+    """
+    
+    """
+    def __init__(self)
+
 # %%
 
 #------------------------------ Data Preprocessing ---------------------------------#
@@ -257,7 +259,7 @@ Adding one more case: Channel is mixed within tracks
 :param events:
 :return:
 '''
-@staticmethod
+
 def __find_note_duration(pitch, channel, events):
 
     sumTicks = 0
@@ -279,18 +281,17 @@ Find the interval of the notes
 :param note: (NoteEvent) A particular note
 :param tempo: (Integer) Tempo of the midi file
 :param ticks_per_beat: (Integer) tpb
-:return : (Double) a number denoting the interval. Eg: 1/2, 1/4, 1/8, 1/16
+:return : (list) A list that have the same shape as constant BEATS in which define how many notes at each note_type
 '''
-@staticmethod
-def __find_note_form(duration, tempo, ticks_per_beat):
+def __find_note_form(duration, ticks_per_beat):
     
     n_beat = duration / ticks_per_beat
     # Now the beat will have the form of float denoting how many beats that note have
 
     beat_matrix = []
     for beat_type in BEATS:
-        if n_beat > beat_type:
-            n_notes = n_beat // beat_type
+        if n_beat >= beat_type:
+            n_notes = int(n_beat // beat_type)
             beat_matrix.append(n_notes)
             n_beat -= n_notes * beat_type
         else:
@@ -363,7 +364,7 @@ def structurize_track(midi_track, ticks_per_beat, default_patch=-1):
         elif _type == 'note_off' or 'end_of_track' or msg.velocity == 0:
             pass # nothing to do here; note offs and track ends are handled in on-off matching in other cases.
         else:
-            print("Unsupported event type (ignored): ", e.type, vars(e),e)
+            print("Unsupported event type (ignored): ", msg.type, vars(msg),msg)
             pass
     return stred, currTick
 
