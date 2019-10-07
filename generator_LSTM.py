@@ -34,6 +34,7 @@ import sklearn
 from keras.models import Model, Sequential
 from keras.layers import Input, Conv1D, MaxPooling1D, Flatten, Dense, BatchNormalization, LSTM, Bidirectional, GRU
 from keras.layers import Conv2D, MaxPooling2D, Dropout, UpSampling2D
+from keras.layers import Embedding
 from keras.optimizers import Adam, SGD
 from keras.losses import categorical_crossentropy
 from keras.metrics import categorical_accuracy
@@ -68,6 +69,7 @@ MIDI_PITCH_TO_INDEX_CONSTANT = np.min(MIDI_NOTES)
 NOTE_ATTRIBUTES = 5
 TICK_SCALER = 0.1
 N_CHANNELS = 1
+SEQUENCE_LENGTH = 16
 
 '''
 - 4 beats is a whole note
@@ -449,10 +451,40 @@ def generate_x_y (sequence, sequence_length):
 
     return return_x[:-1], np.asarray(return_y)
 
-'''
-:param note_sequence: (1D list) Each element is a NoteEvents.
-:return: (List) 1D List of associated value
-'''
+"""
+:param strutured_notes: (1D list) Each element is a NoteEvents.
+sequence_length: Integer. 
+    a length of each batch.
+:return:
+tuple
+    (Preprocessed x, preprocess y, tokenizer x, vocab_length)
+"""
+def preprocess_data(strutured_notes, sequence_length=SEQUENCE_LENGTH):
+
+    text_token_x, tokenizer = tokenize(strutured_notes)
+
+    vocab_length = len(set(text_token_x))
+
+    n_samples = int(text_token_x.shape[0] // sequence_length)
+
+    # Split the whole sequence in to n_samples of sequence length sequences.
+    preprocess_x = np.reshape(text_token_x[:n_samples*sequence_length], (n_samples, sequence_length))
+
+    # Create training label, which is the note after a sequence at n-th sample.
+    preprocess_y = []
+    for i, sample in enumerate(preprocess_x):
+        # Append the first note in the next sequence
+        # Because there are no next note in after the last sequence, I just dont use the last sequence
+        if i + 1 < preprocess_x.shape[0]:
+            preprocess_y.append(preprocess_x[i+1,0])
+
+    return preprocess_x[:-1], np.asarray(preprocess_y), tokenizer, vocab_length
+
+
+"""
+:param strutured_notes: (1D list) Each element is a NoteEvents.
+:return: (ndarray) 1D array of associated value 
+"""
 def tokenize(strutured_notes):
 
     notes_matrix = np.asarray(strutured_notes)
@@ -462,7 +494,11 @@ def tokenize(strutured_notes):
 
     tokenizer = Tokenizer()
     tokenizer.fit_on_texts(notes_matrix)
-    return tokenizer.texts_to_sequences(notes_matrix), tokenizer
+
+    sequences = np.asarray(tokenizer.texts_to_sequences(notes_matrix))
+    sequences = np.reshape(sequences, (sequences.shape[0]))
+
+    return sequences, tokenizer
 
 # %%
 
@@ -497,40 +533,19 @@ midi = MidiFile(testFile)
 
 arr, maxTick = structurize_track(midi.tracks[0], midi.ticks_per_beat)
 
-# %%
-sequence_length = 100
-x, tokener = tokenize(arr)
+x, y, token, vocab_length = preprocess_data(arr)
 
 # %%
-arr[:30]
-# %%
-x[:30]
-target = x[11][0]
+TEST_INDEX = 11
+target = x[TEST_INDEX][0]
 terIdx = -1
 
-print(arr[11])
+print(arr[TEST_INDEX])
 
 for i, data in enumerate(x):
     if data[0] == target:
         terIdx = i
         print(arr[terIdx])
-
-
-
-
-# %%
-
-for i, note in enumerate(matrix):
-    matrix[i] = note.data_repr()
-
-# %%
-
-matrix
-# %%
-
-tokenizer = Tokenizer()
-tokenizer.fit_on_texts(notes_matrix)
-
 
 
 # %%
@@ -602,17 +617,18 @@ def conv_vae():
     return
 
 
-def simple_lstm_model(sequence_length, note_range):
-    in_tensor = Input(shape=(sequence_length, note_range))
-    tensor = LSTM(128, activation='relu', return_sequences=True)(in_tensor)
+def simple_lstm_model(vocab_length, sequence_length=SEQUENCE_LENGTH):
+    in_tensor = Input(shape=(sequence_length,))
+    tensor = Embedding(18, output_dim=10, input_length=sequence_length)(in_tensor)
+    tensor = LSTM(128, activation='relu', return_sequences=True)(tensor)
     tensor = Dropout(0.2)(tensor)
     tensor = LSTM(64, activation='relu')(tensor)
     tensor = Dropout(0.2)(tensor)
-    tensor = Dense(note_range, activation='sigmoid')(tensor)
+    tensor = Dense(vocab_length, activation='sigmoid')(tensor)
 
     model = Model(in_tensor, tensor)
     rmsprop = RMSprop(lr=10e-4)
-    model.compile(optimizer=rmsprop, loss='categorical_crossentropy', metrics=['acc'])
+    model.compile(optimizer=rmsprop, loss='sparse_categorical_crossentropy', metrics=['acc'])
     return model
 
 
@@ -620,9 +636,7 @@ def simple_lstm_model(sequence_length, note_range):
 
 ########################################### RUNNER ####################################
 
-sequence_length = 100
-
-model = simple_lstm_model(sequence_length, x.shape[-1])
+model = simple_lstm_model(vocab_length)
 model.summary()
 
 
@@ -635,13 +649,13 @@ callbacks_list = [checkpoint]
 history = model.fit(
     x=x,
     y=y,
-    batch_size=8,
-    epochs=20,
-    verbose=1,
-    validation_split=0.15,
+    batch_size=16,
+    epochs=200,
+    verbose=1
     # callbacks=callbacks_list
 )
 
+# %%
 
 
 # %%
