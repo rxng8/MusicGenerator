@@ -231,6 +231,9 @@ class NoteEvent:
         self.extended = extended
         self.noteType = noteType
 
+    def data_repr(self):
+        return "p" + str(self.pitch) + "t" + str(self.noteType)
+
     def __str__(self):
         return "NoteEvent(start_tick: {0}, duration: {1}, type: {2}, stop_tick: {3},  pitch: {4}, extended_note: {5})".format(str(self.start_tick), str(self.duration), str(self.noteType), str(self.stop_tick), str(self.pitch), str(self.extended))
 
@@ -446,6 +449,25 @@ def generate_x_y (sequence, sequence_length):
 
     return return_x[:-1], np.asarray(return_y)
 
+'''
+:param note_sequence: (1D list) Each element is a NoteEvents.
+:return: (List) 1D List of associated value
+'''
+def tokenize(strutured_notes):
+
+    notes_matrix = np.asarray(strutured_notes)
+
+    for i, note in enumerate(notes_matrix):
+        notes_matrix[i] = note.data_repr()
+
+    tokenizer = Tokenizer()
+    tokenizer.fit_on_texts(notes_matrix)
+    return tokenizer.texts_to_sequences(notes_matrix), tokenizer
+
+# %%
+
+
+
 
 # %%
 
@@ -471,15 +493,43 @@ def extract_data(data_path):
 
 ########################################### Runner ########################################
 
-arr = extract_data(testFile)
+midi = MidiFile(testFile)
+
+arr, maxTick = structurize_track(midi.tracks[0], midi.ticks_per_beat)
 
 # %%
 sequence_length = 100
-x, y = generate_x_y(arr, sequence_length)
+x, tokener = tokenize(arr)
+
+# %%
+arr[:30]
+# %%
+x[:30]
+target = x[11][0]
+terIdx = -1
+
+print(arr[11])
+
+for i, data in enumerate(x):
+    if data[0] == target:
+        terIdx = i
+        print(arr[terIdx])
+
+
+
 
 # %%
 
-y.shape
+for i, note in enumerate(matrix):
+    matrix[i] = note.data_repr()
+
+# %%
+
+matrix
+# %%
+
+tokenizer = Tokenizer()
+tokenizer.fit_on_texts(notes_matrix)
 
 
 
@@ -582,14 +632,14 @@ checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_o
 
 callbacks_list = [checkpoint]
 
-history = autoencoder.fit(
-    x=np.zeros(shape=y.shape),
+history = model.fit(
+    x=x,
     y=y,
     batch_size=8,
-    epochs=200,
+    epochs=20,
     verbose=1,
     validation_split=0.15,
-    callbacks=callbacks_list
+    # callbacks=callbacks_list
 )
 
 
@@ -598,8 +648,11 @@ history = autoencoder.fit(
 
 #----------------------------------------------- Predict -------------------------------------#
 
-predict = autoencoder.predict(x[1:2])
+predict = model.predict(x[1:2])
 
+# %%
+
+predict[0]
 
 
 # %%
