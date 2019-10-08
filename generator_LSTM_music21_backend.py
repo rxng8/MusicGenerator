@@ -28,7 +28,7 @@ import librosa.display
 # Data Preprocessing
 from keras.utils import to_categorical
 from keras.preprocessing.text import Tokenizer
-import sklearn
+from keras.utils import to_categorical
 
 # Deep Learning Library
 from keras.models import Model, Sequential
@@ -69,7 +69,8 @@ MIDI_PITCH_TO_INDEX_CONSTANT = np.min(MIDI_NOTES)
 NOTE_ATTRIBUTES = 5
 TICK_SCALER = 0.1
 N_CHANNELS = 1
-SEQUENCE_LENGTH = 16
+SEQUENCE_LENGTH = 4
+N_FILE_TRAIN = 40
 
 
 testFile = 'dataset_piano_jazz/AHouseis.mid'
@@ -94,15 +95,13 @@ strings[0] == 'a'
 
 #------------------------------ Data Preprocessing ---------------------------------#
 
-def load_data(folder_name, max_file=20):
+def load_data(folder_name, max_file=N_FILE_TRAIN):
     notes = []
     cnt = 0
     for _fname in os.listdir(folder_name):
         if ('.mid' not in _fname and '.MID' not in _fname):
             print ("{} file is not valid".format(_fname))
-            continue
-        
-        if (cnt < 10):
+        elif (cnt < 10):
             notes = np.append(notes, load_midi(os.path.join(folder_name, _fname)))
             cnt += 1
 
@@ -172,6 +171,8 @@ def preprocess_data(notes, sequence_length=SEQUENCE_LENGTH):
         if i + 1 < preprocess_x.shape[0]:
             preprocess_y.append(preprocess_x[i+1,0])
 
+    preprocess_y = to_categorical(preprocess_y, num_classes=len(vocab))
+
     return preprocess_x[:-1], np.asarray(preprocess_y), tokenizer
 
 
@@ -203,7 +204,10 @@ vocab_length = len(vocab)
 
 # %%
 
-x.shape
+len(vocab)
+# %%
+
+y.shape
 
 # %%
 
@@ -319,16 +323,16 @@ def conv_vae():
 
 def simple_lstm_model(vocab_length, sequence_length=SEQUENCE_LENGTH):
     in_tensor = Input(shape=(sequence_length,))
-    tensor = Embedding(18, output_dim=10, input_length=sequence_length)(in_tensor)
+    tensor = Embedding(50, output_dim=30, input_length=sequence_length)(in_tensor)
     tensor = LSTM(128, activation='relu', return_sequences=True)(tensor)
     tensor = Dropout(0.2)(tensor)
     tensor = LSTM(64, activation='relu')(tensor)
     tensor = Dropout(0.2)(tensor)
-    tensor = Dense(vocab_length, activation='sigmoid')(tensor)
+    tensor = Dense(vocab_length, activation='softmax')(tensor)
 
     model = Model(in_tensor, tensor)
-    rmsprop = RMSprop(lr=10e-4)
-    model.compile(optimizer=rmsprop, loss='sparse_categorical_crossentropy', metrics=['acc'])
+    rmsprop = RMSprop(lr=10e-5)
+    model.compile(optimizer=rmsprop, loss='categorical_crossentropy', metrics=['acc'])
     return model
 
 
@@ -351,7 +355,7 @@ history = model.fit(
     x=x,
     y=y,
     batch_size=16,
-    epochs=200,
+    epochs=2000,
     verbose=1
     # callbacks=callbacks_list
 )
