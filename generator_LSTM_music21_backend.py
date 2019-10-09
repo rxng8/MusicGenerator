@@ -102,12 +102,12 @@ def load_data(folder_name, max_file=N_FILE_TRAIN):
         if ('.mid' not in _fname and '.MID' not in _fname):
             print ("{} file is not valid".format(_fname))
         elif (cnt < 10):
-            notes = np.append(notes, load_midi(os.path.join(folder_name, _fname)))
+            notes.append(load_midi(os.path.join(folder_name, _fname)))
             cnt += 1
 
-    vocab = sorted(set([note for note in notes]))
+    # vocab = sorted(set([note for note in notes]))
 
-    return notes, vocab
+    return notes
 
 def load_midi(file_name):
     '''
@@ -175,6 +175,55 @@ def preprocess_data(notes, sequence_length=SEQUENCE_LENGTH):
 
     return preprocess_x[:-1], np.asarray(preprocess_y), tokenizer
 
+def preprocess_data_one_hot(notes, sequence_length=SEQUENCE_LENGTH):
+
+    '''
+    :param strutured_notes: (1D list) Each element is a NoteEvents.
+    sequence_length: Integer. 
+        a length of each batch.
+    :return:
+    tuple
+        (Preprocessed x, preprocess y, tokenizer x, vocab_length)
+    '''
+
+    # tmp is 1d representation of notes
+    tmp = np.asarray(notes)
+    tmp.reshape((tmp.shape[0]*tmp.shape[1]))
+    text_token_x, tokenizer = tokenize(tmp)
+    vocab = sorted(set([note for note in text_token_x]))
+    note_to_idx = dict([(name, i) for i, name in enumerate(vocab)])
+
+
+    preprocess_x = []
+    preprocess_y = []
+
+    for midi_data in notes:
+
+        n_samples = int(midi_data.shape[0] // sequence_length)
+
+        # Split the whole sequence into n_samples of sequence length sequences.
+        single_preprocess_x = np.reshape(midi_data[:n_samples*sequence_length], (n_samples, sequence_length))
+
+        single_preprocess_x_after = np.zeros(shape=(single_preprocess_x.shape[0], single_preprocess_x.shape[1], len(vocab)))
+
+        for i in range(single_preprocess_x.shape[0]):
+            for j in range(single_preprocess_x.shape[1]):
+                single_preprocess_x_after[i][j][note_to_idx[single_preprocess_x[i][j]]] = 1
+        # Now preprocess_x_after will have shape (n_batch, seq_len, one-hot-coded vector)
+
+        preprocess_x = np.append(preprocess_x, single_preprocess_x_after.tolist()[:-1])
+
+        # Create training label, which is the note after a sequence at n-th sample.
+        single_preprocess_y = []
+        for i, sample in enumerate(single_preprocess_x_after):
+            # Append the first note in the next sequence
+            # Because there are no next note in after the last sequence, I just dont use the last sequence
+            if i + 1 < single_preprocess_x_after.shape[0]:
+                single_preprocess_y.append(single_preprocess_x_after[i+1,0])
+
+        preprocess_y = np.append(preprocess_y, single_preprocess_y)
+
+    return np.asarray(preprocess_x), np.asarray(preprocess_y), tokenizer
 
 """
 :param strutured_notes: (1D list) Each element is a NoteEvents.
@@ -198,59 +247,14 @@ def tokenize(notes):
 
 arr, vocab = load_data(DATA_FOLDER_PATH)
 
-x, y, tokner = preprocess_data(arr)
+x, y, tokner = preprocess_data_one_hot(arr)
 
 vocab_length = len(vocab)
 
-# %%
-
-len(vocab)
-# %%
-
-y.shape
 
 # %%
 
-#------------------------------------- Data Extraction ----------------------------------#
-
-"""
-:param data_path: (String) The actual file
-"""
-def extract_data(data_path):
-    
-    midi = MidiFile(data_path)
-    tpb = midi.ticks_per_beat
-    print('Extracting {}'.format(data_path))
-    if midi.type == 0:
-        
-        st, maxTick = structurize_track(midi.tracks[0], tpb) # If type == 0 -> midi just have 1 track.
-        arr = map_note_to_sequence(st)
-        
-    return arr
-
-
-# %%
-
-########################################### Runner ########################################
-
-midi = MidiFile(testFile)
-
-arr, maxTick = structurize_track(midi.tracks[0], midi.ticks_per_beat)
-
-x, y, token, vocab_length = preprocess_data(arr)
-
-# %%
-TEST_INDEX = 11
-target = x[TEST_INDEX][0]
-terIdx = -1
-
-print(arr[TEST_INDEX])
-
-for i, data in enumerate(x):
-    if data[0] == target:
-        terIdx = i
-        print(arr[terIdx])
-
+vocab_length
 
 # %%
 
@@ -323,8 +327,21 @@ def conv_vae():
 
 def simple_lstm_model(vocab_length, sequence_length=SEQUENCE_LENGTH):
     in_tensor = Input(shape=(sequence_length,))
-    tensor = Embedding(50, output_dim=30, input_length=sequence_length)(in_tensor)
+    tensor = Embedding(vocab_length, output_dim=100, input_length=sequence_length)(in_tensor)
     tensor = LSTM(128, activation='relu', return_sequences=True)(tensor)
+    tensor = Dropout(0.2)(tensor)
+    tensor = LSTM(64, activation='relu')(tensor)
+    tensor = Dropout(0.2)(tensor)
+    tensor = Dense(vocab_length, activation='softmax')(tensor)
+
+    model = Model(in_tensor, tensor)
+    rmsprop = RMSprop(lr=10e-5)
+    model.compile(optimizer=rmsprop, loss='categorical_crossentropy', metrics=['acc'])
+    return model
+
+def lstm_model(vocab_length, sequence_length=SEQUENCE_LENGTH):
+    in_tensor = Input(shape=(sequence_length, vocab_length))
+    tensor = LSTM(128, activation='relu', return_sequences=True)(in_tensor)
     tensor = Dropout(0.2)(tensor)
     tensor = LSTM(64, activation='relu')(tensor)
     tensor = Dropout(0.2)(tensor)
@@ -340,10 +357,17 @@ def simple_lstm_model(vocab_length, sequence_length=SEQUENCE_LENGTH):
 
 ########################################### RUNNER ####################################
 
-model = simple_lstm_model(vocab_length)
+model = lstm_model(vocab_length)
 model.summary()
 
+# %%
 
+x = x.reshape((x.shape[0], x.shape[1], 1))
+
+# %%
+
+
+x.shape
 # %%
 
 filepath = 'checkpoint/'
@@ -355,7 +379,7 @@ history = model.fit(
     x=x,
     y=y,
     batch_size=16,
-    epochs=2000,
+    epochs=16,
     verbose=1
     # callbacks=callbacks_list
 )
