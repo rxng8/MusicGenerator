@@ -70,26 +70,8 @@ NOTE_ATTRIBUTES = 5
 TICK_SCALER = 0.1
 N_CHANNELS = 1
 SEQUENCE_LENGTH = 4
-N_FILE_TRAIN = 40
+N_FILE_TRAIN = 2
 
-
-testFile = 'dataset_piano_jazz/AHouseis.mid'
-# midi_data = MidiFile()
-# midi_data.open(testFile)
-# midi_data.read()
-
-# %%
-
-x = converter.parse(testFile)
-
-# %%
-
-x[0].flat.notes[:50]
-
-# %%
-strings = "abc"
-
-strings[0] == 'a'
 
 # %%
 
@@ -101,7 +83,7 @@ def load_data(folder_name, max_file=N_FILE_TRAIN):
     for _fname in os.listdir(folder_name):
         if ('.mid' not in _fname and '.MID' not in _fname):
             print ("{} file is not valid".format(_fname))
-        elif (cnt < 10):
+        elif (cnt < N_FILE_TRAIN):
             notes.append(load_midi(os.path.join(folder_name, _fname)))
             cnt += 1
 
@@ -187,22 +169,23 @@ def preprocess_data_one_hot(notes, sequence_length=SEQUENCE_LENGTH):
     '''
 
     # tmp is 1d representation of notes
-    tmp = np.asarray(notes)
-    tmp.reshape((tmp.shape[0]*tmp.shape[1]))
-    text_token_x, tokenizer = tokenize(tmp)
-    vocab = sorted(set([note for note in text_token_x]))
+    tmp = [note for midi_data in notes for note in midi_data]
+    # text_token_x, tokenizer = tokenize(tmp)
+    # vocab = sorted(set([note for note in text_token_x]))
+    vocab = sorted(set([note for note in tmp]))
     note_to_idx = dict([(name, i) for i, name in enumerate(vocab)])
 
 
-    preprocess_x = []
-    preprocess_y = []
+    preprocess_x = np.zeros(shape=(0, sequence_length, len(vocab)))
+    preprocess_y = np.zeros(shape=(0, len(vocab)))
 
     for midi_data in notes:
 
-        n_samples = int(midi_data.shape[0] // sequence_length)
+        midi_data_np = np.asarray(midi_data)
+        n_samples = int(midi_data_np.shape[0] // sequence_length)
 
         # Split the whole sequence into n_samples of sequence length sequences.
-        single_preprocess_x = np.reshape(midi_data[:n_samples*sequence_length], (n_samples, sequence_length))
+        single_preprocess_x = np.reshape(midi_data_np[:n_samples*sequence_length], (n_samples, sequence_length))
 
         single_preprocess_x_after = np.zeros(shape=(single_preprocess_x.shape[0], single_preprocess_x.shape[1], len(vocab)))
 
@@ -211,7 +194,13 @@ def preprocess_data_one_hot(notes, sequence_length=SEQUENCE_LENGTH):
                 single_preprocess_x_after[i][j][note_to_idx[single_preprocess_x[i][j]]] = 1
         # Now preprocess_x_after will have shape (n_batch, seq_len, one-hot-coded vector)
 
-        preprocess_x = np.append(preprocess_x, single_preprocess_x_after.tolist()[:-1])
+        # print(np.asarray(single_preprocess_x_after.tolist()[:-1]).shape)
+        # print(preprocess_x)
+
+        preprocess_x = np.append(preprocess_x, single_preprocess_x_after[:-1], axis=0)
+        # preprocess_x.append(single_preprocess_x_after.tolist()[:-1])
+
+        # print(np.asarray(preprocess_x).shape)
 
         # Create training label, which is the note after a sequence at n-th sample.
         single_preprocess_y = []
@@ -221,9 +210,10 @@ def preprocess_data_one_hot(notes, sequence_length=SEQUENCE_LENGTH):
             if i + 1 < single_preprocess_x_after.shape[0]:
                 single_preprocess_y.append(single_preprocess_x_after[i+1,0])
 
-        preprocess_y = np.append(preprocess_y, single_preprocess_y)
+        preprocess_y = np.append(preprocess_y, single_preprocess_y, axis=0)
 
-    return np.asarray(preprocess_x), np.asarray(preprocess_y), tokenizer
+    # return np.asarray(preprocess_x), np.asarray(preprocess_y), tokenizer
+    return preprocess_x, preprocess_y, vocab, note_to_idx
 
 """
 :param strutured_notes: (1D list) Each element is a NoteEvents.
@@ -245,16 +235,9 @@ def tokenize(notes):
 
 #------------------------------------- Runner ----------------------------------------#
 
-arr, vocab = load_data(DATA_FOLDER_PATH)
-
-x, y, tokner = preprocess_data_one_hot(arr)
-
+arr = load_data(DATA_FOLDER_PATH)
+x, y, vocab, note_to_idx = preprocess_data_one_hot(arr)
 vocab_length = len(vocab)
-
-
-# %%
-
-vocab_length
 
 # %%
 
@@ -362,14 +345,6 @@ model.summary()
 
 # %%
 
-x = x.reshape((x.shape[0], x.shape[1], 1))
-
-# %%
-
-
-x.shape
-# %%
-
 filepath = 'checkpoint/'
 checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
 
@@ -378,7 +353,7 @@ callbacks_list = [checkpoint]
 history = model.fit(
     x=x,
     y=y,
-    batch_size=16,
+    batch_size=8,
     epochs=16,
     verbose=1
     # callbacks=callbacks_list
