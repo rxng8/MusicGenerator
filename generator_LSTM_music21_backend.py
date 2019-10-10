@@ -60,17 +60,17 @@ DENOMNMINATOR = 4
 
 DATA_FOLDER_PATH = 'dataset_piano_jazz'
 MIDI_NOTES = np.arange(21, 109)
-MIDI_NOTES_MAP = {
-    '21': 'A0',
-    '22': 'B0',
-    # TODO: Implement!
-}
+# MIDI_NOTES_MAP = {
+#     '21': 'A0',
+#     '22': 'B0',
+#     # TODO: Implement!
+# }
 MIDI_PITCH_TO_INDEX_CONSTANT = np.min(MIDI_NOTES)
 NOTE_ATTRIBUTES = 5
 TICK_SCALER = 0.1
 N_CHANNELS = 1
-SEQUENCE_LENGTH = 4
-N_FILE_TRAIN = 2
+SEQUENCE_LENGTH = 8
+N_FILE_TRAIN = 10
 
 
 # %%
@@ -241,6 +241,10 @@ vocab_length = len(vocab)
 
 # %%
 
+x.shape
+
+# %%
+
 #----------------------------------------- Models ----------------------------------#
 
 
@@ -345,21 +349,62 @@ model.summary()
 
 # %%
 
-filepath = 'checkpoint/'
-checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
+# filepath = 'checkpoint/'
+# checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
 
-callbacks_list = [checkpoint]
+# callbacks_list = [checkpoint]
 
 history = model.fit(
     x=x,
     y=y,
     batch_size=8,
-    epochs=16,
-    verbose=1
+    epochs=5
     # callbacks=callbacks_list
 )
 
 # %%
+backward_dict = dict()
+for note in note_to_idx.keys():
+    index = note_to_idx[note]
+    backward_dict[index] = note
+
+# pick a random sequence from the input as a starting point for the prediction
+n = np.random.randint(0, x.shape[0] - 1)
+sequence = x[n]
+start_sequence = sequence.reshape(1, SEQUENCE_LENGTH, vocab_length)
+output = []
+
+# Let's generate a song of 100 notes
+for i in range(0, 100):
+    newNote = model.predict(start_sequence, verbose=0)
+    # Get the position with the highest probability
+    index = np.argmax(newNote)
+    encoded_note = np.zeros((vocab_length))
+    encoded_note[index] = 1
+    output.append(encoded_note)
+    sequence = start_sequence[0][1:]
+    start_sequence = np.concatenate((sequence, encoded_note.reshape(1, vocab_length)))
+    start_sequence = start_sequence.reshape(1, SEQUENCE_LENGTH, vocab_length)
+    
+
+# Now output is populated with notes in their string form
+for element in output:
+    print(element)
+
+
+# %%
+
+finalNotes = [] 
+for element in output:
+    index = list(element).index(1)
+    finalNotes.append(backward_dict[index])
+    
+offset = 0
+output_notes = []
+    
+# %%
+
+x[0,:10,:]
 
 
 # %%
