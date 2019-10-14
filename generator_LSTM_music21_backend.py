@@ -59,6 +59,7 @@ NUMERATOR = 4
 DENOMNMINATOR = 4
 
 DATA_FOLDER_PATH = 'dataset_piano_jazz'
+TEST_FOLDER_PATH = 'test_data'
 MIDI_NOTES = np.arange(21, 109)
 # MIDI_NOTES_MAP = {
 #     '21': 'A0',
@@ -231,11 +232,43 @@ def tokenize(notes):
 
     return sequences, tokenizer
 
+
+# %%
+#-------------------------------------- Test -------------------------------#
+
+tmp = np.asarray([[0,0,0,1],
+        [0,0,1,0],
+        [0,0,0,1],
+        [1,0,0,0]])
+
+tmp = tmp.reshape((1, tmp.shape[0], tmp.shape[1]))
+
+arr = np.append(tmp, tmp, axis=0)
+arr = np.append(arr, tmp, axis=0)
+y_arr = np.asarray([[0,0,0,1],
+            [0,0,0,1],
+            [0,0,0,1]])
+
+# %%
+
+arr.shape
+# %%
+
+y_arr.shape
 # %%
 
 #------------------------------------- Runner ----------------------------------------#
 
-arr = load_data(DATA_FOLDER_PATH)
+arr = load_data(TEST_FOLDER_PATH)
+
+
+# %%
+
+arr[0]
+
+# %%
+
+
 x, y, vocab, note_to_idx = preprocess_data_one_hot(arr)
 vocab_length = len(vocab)
 
@@ -339,6 +372,18 @@ def lstm_model(vocab_length, sequence_length=SEQUENCE_LENGTH):
     model.compile(optimizer=rmsprop, loss='categorical_crossentropy', metrics=['acc'])
     return model
 
+def dummy_lstm ():
+    in_tensor = Input(shape=(4,4))
+    tensor = LSTM(16, activation='relu', return_sequences=True)(in_tensor)
+    tensor = Dropout(0.2)(tensor)
+    tensor = LSTM(8, activation='relu')(tensor)
+    tensor = Dropout(0.2)(tensor)
+    tensor = Dense(4, activation='softmax')(tensor)
+
+    model = Model(in_tensor, tensor)
+    rmsprop = RMSprop(lr=10e-4)
+    model.compile(optimizer=rmsprop, loss='binary_crossentropy', metrics=['acc'])
+    return model
 
 # %%
 
@@ -346,6 +391,14 @@ def lstm_model(vocab_length, sequence_length=SEQUENCE_LENGTH):
 
 model = lstm_model(vocab_length)
 model.summary()
+
+# %%
+
+########################################### RUNNER ####################################
+
+model = simple_lstm_model(vocab_length)
+model.summary()
+
 
 # %%
 
@@ -358,9 +411,39 @@ history = model.fit(
     x=x,
     y=y,
     batch_size=8,
-    epochs=5
+    epochs=2000
     # callbacks=callbacks_list
 )
+
+# %%
+
+model.save('Bach_prelude_and_fuge_in_C_major_BWV_846_model.h5')
+
+
+# %%
+
+# Save the weights
+model.save_weights('Bach_prelude_and_fuge_in_C_major_BWV_846_model_weights.h5')
+
+# Save the model architecture
+with open('model_architecture.json', 'w') as f:
+    f.write(model.to_json())
+
+
+# %%
+
+from keras.models import model_from_json
+
+# Model reconstruction from JSON file
+with open('model_architecture.json', 'r') as f:
+    model = model_from_json(f.read())
+
+# Load weights into the new model
+model.load_weights('model_weights.h5')
+
+# %%
+
+np.argmax(model.predict(x[:1])[0])
 
 # %%
 backward_dict = dict()
