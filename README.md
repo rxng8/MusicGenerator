@@ -51,6 +51,11 @@ This is a written project with regard to processing sound using keras deep learn
 - Utilize a unique class for a note event for efficient data pre-processing.
 - Add function to build note matrix from midi tracks.
 
+#### Oct 14, 2019:
+- Succesfully train on Bach's prelude and fuge in C major BWV 846 piece, 2000 epoches, with accuracy of 89% and loss 12%.
+
+![This is accuracy model](./model_accuracy.png)
+![This is accuracy model](./model_loss.png)
 -------------
 
 
