@@ -417,6 +417,40 @@ history = model.fit(
 
 # %%
 
+#-------------------------- Training history Analysis ------------------------------#
+import pydot
+from keras.utils import plot_model
+plot_model(model, to_file='model.png')
+# %%
+
+from IPython.display import SVG
+from keras.utils import model_to_dot
+
+SVG(model_to_dot(model).create(prog='dot', format='svg'))
+
+# %%
+
+
+# Plot training & validation accuracy values
+plt.plot(history.history['acc'])
+plt.title('Model accuracy')
+plt.ylabel('Accuracy')
+plt.xlabel('Epoch')
+plt.legend(['Train'], loc='upper left')
+plt.show()
+
+# Plot training & validation loss values
+plt.plot(history.history['loss'])
+plt.title('Model loss')
+plt.ylabel('Loss')
+plt.xlabel('Epoch')
+plt.legend(['Train'], loc='upper left')
+plt.show()
+
+
+# %%
+
+# Save the entire model
 model.save('Bach_prelude_and_fuge_in_C_major_BWV_846_model.h5')
 
 
